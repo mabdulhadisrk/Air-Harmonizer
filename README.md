@@ -65,7 +65,7 @@ cd AeroHarmonix
 
 ### Install dependencies
 
-pip install opencv-python mediapipe pygame numpy
+pip install -r requirements.txt
 
 ### Run
 
