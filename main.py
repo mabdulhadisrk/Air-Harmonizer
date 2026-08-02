@@ -84,6 +84,10 @@ active_family = 1
 left_capo_shift = 0
 last_state_signature = ""
 
+# threshold: fingertip must be at least this far above the pip to count as "shown"
+# (as a fraction of the frame height - 0.04 means ~4% of screen height)
+TIP_VISIBILITY_THRESHOLD = 0.04
+
 # mouse click handler for switching chord families
 def mouse_click_handler(event, x, y, flags, param):
     global active_family, last_state_signature
@@ -177,18 +181,33 @@ while camera.isOpened():
             pips = (6, 10, 14, 18)
             f_count = 0
             
-            # count extended fingers (tip above pip = extended)
+            # count ONLY fingers where tip is clearly above pip (showing, not folded)
+            # uses a threshold so slightly bent fingers dont trigger
             for t_idx, p_idx in zip(tips, pips):
-                if pts[t_idx].y < pts[p_idx].y:
+                tip_y = pts[t_idx].y
+                pip_y = pts[p_idx].y
+                
+                # tip must be significantly above pip to count as "shown"
+                if (pip_y - tip_y) > TIP_VISIBILITY_THRESHOLD:
                     f_count += 1
                     tx, ty = int(pts[t_idx].x * w), int(pts[t_idx].y * h)
                     cv2.circle(frame, (tx, ty), 10, dot_color, cv2.FILLED)
+                else:
+                    # still draw the dot but smaller/dimmer to show its detected but not active
+                    tx, ty = int(pts[t_idx].x * w), int(pts[t_idx].y * h)
+                    cv2.circle(frame, (tx, ty), 6, (100, 100, 100), cv2.FILLED)
                     
-            # check if thumb is extended separately
+            # check if thumb is extended separately (same threshold logic)
             thumb_tip = pts[4]
             thumb_ip = pts[3]
             hand_base = pts[0]
-            if abs(thumb_tip.x - hand_base.x) > abs(thumb_ip.x - hand_base.x):
+            
+            # thumb needs to be sticking out sideways from the hand, not just above the IP joint
+            thumb_horizontal_distance = abs(thumb_tip.x - hand_base.x)
+            thumb_ip_horizontal_distance = abs(thumb_ip.x - hand_base.x)
+            
+            if thumb_horizontal_distance > thumb_ip_horizontal_distance and \
+               (thumb_horizontal_distance - thumb_ip_horizontal_distance) > 0.02:
                 thumb_open = True
                 bx, by = int(thumb_tip.x * w), int(thumb_tip.y * h)
                 cv2.circle(frame, (bx, by), 10, dot_color, cv2.FILLED)
