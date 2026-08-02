@@ -1,5 +1,5 @@
 # AeroHarmonix
-Its a gesture-controlled synthesizer that plays chords based on hand movements tracked through a webcam. Built using AI-assisted development as a rapid prototyping tool.
+AeroHarmonix is a functional musical instrument that turns a basic laptop webcam into a real-time synthesizer. The application eliminates the need for expensive MIDI controllers or physical hardware sensors, relying entirely on pure math and computer vision to translate hand gestures into live audio.
 
 ### What It Does 
 
@@ -24,7 +24,7 @@ Place your hands in front of the camera. Your left hand acts as a capo — each 
 
 ## How It Works
 
-**Hand Tracking** — Uses MediaPipe to detect hand landmarks. The screen is split vertically at the midpoint to assign left and right hands based on position rather than MediaPipe's labels, which were inconsistent under varying light.
+**Hand Tracking** — Uses MediaPipe to detect hand landmarks. The screen is split vertically at the midpoint to assign / differentiate left and right hands based on position rather than MediaPipe's labels, which were inconsistent under varying light.
 
 **Finger Detection** — Compares each fingertip's Y-position to its PIP joint. A small threshold filters out partially curled fingers ( which played random notes ) so only clearly extended fingers register.
 
@@ -42,13 +42,14 @@ This project was built using AI-assisted development (Gemini and DeepSeek) as a 
 
 The AI handled syntax and boilerplate so I could focus on the actual engineering — what features to build, how they should work, and why certain approaches were better than others.
 
-## Problems I Ran Into
+## Bugs I Had To Figure Out And Solve
 
 - **Handedness flipping**: MediaPipe would randomly swap left/right labels. Solved by ignoring labels and dividing the screen by absolute position.
 - **Audio lag on chord change**: Generating new chord sounds in real-time was blocking the camera feed and causing stutter. Fixed by adding a sound cache — once a chord is generated, it's stored and reused instantly instead of being rebuilt every time.
 - **Capo offset bug**: 3 fingers were producing +4 semitones due to a mapping error. Corrected to direct 1:1 finger-to-semitone mapping.
 - **External camera priority**: macOS kept defaulting to my iPhone Continuity Camera. Added a resolution check to identify and skip external devices.
 - **Sound quality**: Pure sine waves sounded thin and cheap. Added harmonic overtones and tuned the envelope to sound closer to a harmonium.
+
 ## Setup
 
 ### Requirements
@@ -66,11 +67,11 @@ cd Air-Harmonizer
 
 pip install opencv-python mediapipe pygame numpy
 
-### Running
+### Run
 
 python main.py
 
-### Start-up
+### Start-up Default
 
 A voice prompt will play after 2 seconds. Show your hands to the webcam and start playing.
 
