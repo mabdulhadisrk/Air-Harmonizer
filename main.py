@@ -12,8 +12,8 @@ pygame.mixer.init(frequency=44100, size=-16, channels=1)
 
 # voice greeting
 def play_welcome_voice():
-    time.sleep(2)
-    os.system("say -v Samantha 'Welcome. This application is an interactive gesture controlled music player.'")
+    time.sleep(1)
+    os.system("say -v Samantha 'Welcome to AeroHarmonix.'")
 
 # pitch shifting
 def shift_pitch(frequency, semitones):
@@ -27,31 +27,26 @@ def build_loop(hz1, hz2, hz3, length=3.0, rate=44100):
     for step in range(total_samples):
         t = step / rate
         
-        # note 1 with harmonics
         w1 = math.sin(2.0 * math.pi * hz1 * t)
         w1 += 0.5 * math.sin(2.0 * math.pi * hz1 * 2.0 * t)
         w1 += 0.25 * math.sin(2.0 * math.pi * hz1 * 3.0 * t)
         
-        # note 2 with harmonics
         w2 = math.sin(2.0 * math.pi * hz2 * t)
         w2 += 0.5 * math.sin(2.0 * math.pi * hz2 * 2.0 * t)
         w2 += 0.25 * math.sin(2.0 * math.pi * hz2 * 3.0 * t)
         
-        # note 3 with harmonics
         w3 = math.sin(2.0 * math.pi * hz3 * t)
         w3 += 0.5 * math.sin(2.0 * math.pi * hz3 * 2.0 * t)
         w3 += 0.25 * math.sin(2.0 * math.pi * hz3 * 3.0 * t)
         
         combined = (w1 + w2 + w3) / 3.5
         
-        # instant attack
-        attack_time = 0.01
+        attack_time = 0.005
         if t < attack_time:
             attack = t / attack_time
         else:
             attack = 1.0
         
-        # hold then decay
         hold_time = 2.0
         if t < hold_time:
             sustain = 1.0
@@ -59,7 +54,6 @@ def build_loop(hz1, hz2, hz3, length=3.0, rate=44100):
             decay_progress = (t - hold_time) / (length - hold_time)
             sustain = math.exp(-decay_progress * 2.0)
         
-        # release
         release_time = 0.1
         if t > length - release_time:
             release = (length - t) / release_time
@@ -70,6 +64,15 @@ def build_loop(hz1, hz2, hz3, length=3.0, rate=44100):
         data_list.append(int(combined * 26000 * env))
         
     return pygame.mixer.Sound(np.array(data_list, dtype=np.int16))
+
+# pre-generate common chords so they don't block the main thread
+sound_cache = {}
+
+def get_sound(hz1, hz2, hz3):
+    key = (round(hz1, 1), round(hz2, 1), round(hz3, 1))
+    if key not in sound_cache:
+        sound_cache[key] = build_loop(hz1, hz2, hz3)
+    return sound_cache[key]
 
 # frequencies
 notes = {
@@ -108,14 +111,12 @@ active_family = 1
 left_capo_shift = 0
 current_playing_chord = None
 active_channel = None
-debounce_counter = 0
-DEBOUNCE_FRAMES = 5  # wait 5 frames before switching
 
 TIP_GAP = 0.03
 
 # mouse handler
 def mouse_click_handler(event, x, y, flags, param):
-    global active_family, current_playing_chord, active_channel, debounce_counter
+    global active_family, current_playing_chord, active_channel
     if event == cv2.EVENT_LBUTTONDOWN:
         if 480 <= x <= 630:
             if 10 <= y <= 40:
@@ -128,14 +129,13 @@ def mouse_click_handler(event, x, y, flags, param):
                 active_channel.stop()
                 active_channel = None
             current_playing_chord = None
-            debounce_counter = 0
 
 # camera
 camera = cv2.VideoCapture(0)
-time.sleep(1)
+camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-cv2.namedWindow("Air Guitar Pro")
-cv2.setMouseCallback("Air Guitar Pro", mouse_click_handler)
+cv2.namedWindow("AeroHarmonix")
+cv2.setMouseCallback("AeroHarmonix", mouse_click_handler)
 
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.5, min_tracking_confidence=0.5)
@@ -236,14 +236,8 @@ while camera.isOpened():
         elif 1 <= current_right_fingers <= 4:
             target_chord = families[active_family][current_right_fingers - 1]
     
-    # DEBOUNCE: only switch if the same chord is detected for 5 frames
-    if target_chord == current_playing_chord:
-        debounce_counter = 0  # same chord, reset counter
-    else:
-        debounce_counter += 1  # new chord detected, count frames
-    
-    if debounce_counter >= DEBOUNCE_FRAMES:
-        # confirmed stable new gesture - switch audio
+    # switch chord - uses cache to avoid regeneration delay
+    if target_chord != current_playing_chord:
         if active_channel:
             active_channel.stop()
             active_channel = None
@@ -254,13 +248,12 @@ while camera.isOpened():
                 sh2 = shift_pitch(target_chord[1], left_capo_shift)
                 sh3 = shift_pitch(target_chord[2], left_capo_shift)
                 
-                sound = build_loop(sh1, sh2, sh3)
+                sound = get_sound(sh1, sh2, sh3)
                 active_channel = sound.play(loops=-1)
             except:
                 pass
         
         current_playing_chord = target_chord
-        debounce_counter = 0
 
     # chord name
     chord_name = "None"
@@ -284,7 +277,7 @@ while camera.isOpened():
     cv2.putText(frame, f"Chord (Blue): {chord_name}", (20, 70),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 0, 0), 2)
     
-    cv2.imshow("Air Guitar Pro", frame)
+    cv2.imshow("AeroHarmonix", frame)
     
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
