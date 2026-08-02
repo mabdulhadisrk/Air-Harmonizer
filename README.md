@@ -7,10 +7,10 @@ Place your hands in front of the camera. Your left hand acts as a capo — each 
 
 ### Controls
 
-- **Left hand (red tracking dots)**: Capo — number of extended fingers = number of semitones
-- **Right hand (blue tracking dots)**: Chord selector — 1 finger plays first chord, 2 fingers plays second, etc.
-- **On-screen buttons**: Switch between three chord families
-- **Q key**: Exit
+- Left hand (red tracking dots): Capo — number of extended fingers = number of semitones
+- Right hand (blue tracking dots): Chord selector — 1 finger plays first chord, 2 fingers plays second, etc.
+- On-screen buttons: Switch between three chord families
+- Q key: Exit
 
 ### Chord Families
 
@@ -44,11 +44,11 @@ The AI handled syntax and boilerplate so I could focus on the actual engineering
 
 ## Bugs I Had To Figure Out And Solve
 
-- **Handedness flipping**: MediaPipe would randomly swap left/right labels. Solved by ignoring labels and dividing the screen by absolute position.
-- **Audio lag on chord change**: Generating new chord sounds in real-time was blocking the camera feed and causing stutter. Fixed by adding a sound cache — once a chord is generated, it's stored and reused instantly instead of being rebuilt every time.
-- **Capo offset bug**: 3 fingers were producing +4 semitones due to a mapping error. Corrected to direct 1:1 finger-to-semitone mapping.
-- **External camera priority**: macOS kept defaulting to my iPhone Continuity Camera. Added a resolution check to identify and skip external devices.
-- **Sound quality**: Pure sine waves sounded thin and cheap. Added harmonic overtones and tuned the envelope to sound closer to a harmonium.
+- Handedness flipping: MediaPipe would randomly swap left/right labels. Solved by ignoring labels and dividing the screen by absolute position.
+- Audio lag on chord change: Generating new chord sounds in real-time was blocking the camera feed and causing stutter. Fixed by adding a sound cache — once a chord is generated, it's stored and reused instantly instead of being rebuilt every time.
+- Capo offset bug: 3 fingers were producing +4 semitones due to a mapping error. Corrected to direct 1:1 finger-to-semitone mapping.
+- External camera priority: macOS kept defaulting to my iPhone Continuity Camera. Added a resolution check to identify and skip external devices.
+- Sound quality: Pure sine waves sounded thin and cheap. Added harmonic overtones and tuned the envelope to sound closer to a harmonium.
 
 ## Setup
 
@@ -60,8 +60,8 @@ The AI handled syntax and boilerplate so I could focus on the actual engineering
 ### Installation
 
 Clone the repo:
-git clone https://github.com/mabdulhadisrk/Air-Harmonizer.git
-cd Air-Harmonizer
+git clone https://github.com/mabdulhadisrk/AeroHarmonix.git
+cd AeroHarmonix
 
 ### Install dependencies
 
@@ -83,6 +83,6 @@ If your Mac tries to use an iPhone Continuity Camera instead of the built-in web
 
 ### Troubleshooting
 
-- **No camera feed**: Check if another app is using your webcam (Zoom, FaceTime, etc.). Close it and restart.
-- **Audio sounds distorted**: Try closing background apps to free up CPU. The audio synthesis runs in real-time and needs some processing power.
-- **Hands not detected**: Make sure you're in a well-lit room. MediaPipe needs decent lighting to track hand landmarks.
+- No camera feed: Check if another app is using your webcam (Zoom, FaceTime, etc.). Close it and restart.
+- Audio sounds distorted: Try closing background apps to free up CPU. The audio synthesis runs in real-time and needs some processing power.
+- Hands not detected: Make sure you're in a well-lit room. MediaPipe needs decent lighting to track hand landmarks.
