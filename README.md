@@ -53,7 +53,7 @@ The AI handled syntax and boilerplate so I could focus on the actual engineering
 ## Setup
 
 ### Requirements
-- Version of Python 3.8 or newer
+- Python 3.8 or newer
 - A working webcam 
 - macOS or Windows (tested on both)
 
@@ -73,7 +73,7 @@ python main.py
 
 ### Start-up Default
 
-A voice prompt will play after 2 seconds to introduce you the project. Show your hands to the webcam and start playing.
+A voice prompt will play after 2 seconds to introduce you to the project. Show your hands to the webcam and start playing.
 
 Press **Q** to quit.
 
@@ -83,6 +83,6 @@ If your Mac tries to use an iPhone Continuity Camera instead of the built-in web
 
 ### Troubleshooting
 
-- No camera feed: Close any app which is using your webcam eg zoom, google meet and then restart.
+- No camera feed: Close any app which is using your webcam eg Zoom, Google Meet, etc then restart.
 - Audio sounds distorted: Try closing background apps to free up CPU. The audio synthesis runs in real-time and needs some processing power.
-- Hands not detected: Make sure you're in a well-lit room. MediaPipe needs decent lighting to track hand landmarks else it would detect any finger trail.
+- Hands not detected: Make sure you're in a well-lit room. MediaPipe needs decent lighting to track hand landmarks.
