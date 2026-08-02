@@ -8,7 +8,7 @@ import os
 import threading
 
 # audio setup
-pygame.mixer.init(frequency=22050, size=-16, channels=1)
+pygame.mixer.init(frequency=44100, size=-16, channels=1)
 
 # voice greeting
 def play_welcome_voice():
@@ -19,31 +19,55 @@ def play_welcome_voice():
 def shift_pitch(frequency, semitones):
     return frequency * (2.0 ** (semitones / 12.0))
 
-# simple tone generator
-def build_loop(hz1, hz2, hz3, length=1.5, rate=22050):
+# rich tone generator
+def build_loop(hz1, hz2, hz3, length=3.0, rate=44100):
     total_samples = int(length * rate)
     data_list = []
     
     for step in range(total_samples):
         t = step / rate
         
+        # note 1 with harmonics
         w1 = math.sin(2.0 * math.pi * hz1 * t)
+        w1 += 0.5 * math.sin(2.0 * math.pi * hz1 * 2.0 * t)
+        w1 += 0.25 * math.sin(2.0 * math.pi * hz1 * 3.0 * t)
+        
+        # note 2 with harmonics
         w2 = math.sin(2.0 * math.pi * hz2 * t)
+        w2 += 0.5 * math.sin(2.0 * math.pi * hz2 * 2.0 * t)
+        w2 += 0.25 * math.sin(2.0 * math.pi * hz2 * 3.0 * t)
+        
+        # note 3 with harmonics
         w3 = math.sin(2.0 * math.pi * hz3 * t)
+        w3 += 0.5 * math.sin(2.0 * math.pi * hz3 * 2.0 * t)
+        w3 += 0.25 * math.sin(2.0 * math.pi * hz3 * 3.0 * t)
         
-        combined = (w1 + w2 + w3) / 3.0
+        combined = (w1 + w2 + w3) / 3.5
         
-        fade_samples = 500
-        if step < fade_samples:
-            env = step / fade_samples
-        elif step > total_samples - fade_samples:
-            env = (total_samples - step) / fade_samples
+        # instant attack
+        attack_time = 0.01
+        if t < attack_time:
+            attack = t / attack_time
         else:
-            env = 1.0
+            attack = 1.0
         
-        decay = 1.0 - (t / length) * 0.3
+        # hold then decay
+        hold_time = 2.0
+        if t < hold_time:
+            sustain = 1.0
+        else:
+            decay_progress = (t - hold_time) / (length - hold_time)
+            sustain = math.exp(-decay_progress * 2.0)
         
-        data_list.append(int(combined * 32767 * env * decay))
+        # release
+        release_time = 0.1
+        if t > length - release_time:
+            release = (length - t) / release_time
+        else:
+            release = 1.0
+        
+        env = attack * sustain * release
+        data_list.append(int(combined * 26000 * env))
         
     return pygame.mixer.Sound(np.array(data_list, dtype=np.int16))
 
@@ -83,12 +107,15 @@ am_override = (notes['A3'], notes['C4'], notes['E4'])
 active_family = 1
 left_capo_shift = 0
 current_playing_chord = None
+active_channel = None
+debounce_counter = 0
+DEBOUNCE_FRAMES = 5  # wait 5 frames before switching
 
 TIP_GAP = 0.03
 
 # mouse handler
 def mouse_click_handler(event, x, y, flags, param):
-    global active_family, current_playing_chord
+    global active_family, current_playing_chord, active_channel, debounce_counter
     if event == cv2.EVENT_LBUTTONDOWN:
         if 480 <= x <= 630:
             if 10 <= y <= 40:
@@ -97,29 +124,21 @@ def mouse_click_handler(event, x, y, flags, param):
                 active_family = 2
             elif 90 <= y <= 120:
                 active_family = 3
-            pygame.mixer.stop()
+            if active_channel:
+                active_channel.stop()
+                active_channel = None
             current_playing_chord = None
+            debounce_counter = 0
 
 # camera
-camera = None
-for dev_idx in range(3):
-    test_cap = cv2.VideoCapture(dev_idx)
-    if test_cap.isOpened():
-        w_check = test_cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        if w_check > 0 and w_check != 1920:
-            camera = test_cap
-            break
-        test_cap.release()
-
-if camera is None:
-    camera = cv2.VideoCapture(0)
-
+camera = cv2.VideoCapture(0)
 time.sleep(1)
+
 cv2.namedWindow("Air Guitar Pro")
 cv2.setMouseCallback("Air Guitar Pro", mouse_click_handler)
 
 mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.6)
+hands = mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
 voice_thread = threading.Thread(target=play_welcome_voice)
 voice_thread.daemon = True
@@ -133,6 +152,9 @@ while camera.isOpened():
     frame = cv2.flip(frame, 1)
     h, w, _ = frame.shape
     
+    rgb_view = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = hands.process(rgb_view)
+    
     # buttons
     c1 = (0, 255, 0) if active_family == 1 else (100, 100, 100)
     cv2.rectangle(frame, (480, 10), (630, 40), c1, -1)
@@ -145,9 +167,6 @@ while camera.isOpened():
     c3 = (0, 255, 0) if active_family == 3 else (100, 100, 100)
     cv2.rectangle(frame, (480, 90), (630, 120), c3, -1)
     cv2.putText(frame, "3: Em-D-C-Bm (T=Am)", (485, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-
-    rgb_view = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = hands.process(rgb_view)
     
     left_hand_visible = False
     detected_left_semitones = 0
@@ -197,7 +216,6 @@ while camera.isOpened():
 
             if is_capo_hand:
                 left_hand_visible = True
-                # count fingers + thumb together
                 total_extended = f_count + (1 if thumb_open else 0)
                 detected_left_semitones = total_extended
             else:
@@ -209,7 +227,7 @@ while camera.isOpened():
     if left_hand_visible:
         left_capo_shift = detected_left_semitones
 
-    # determine target chord
+    # target chord
     target_chord = None
     
     if right_hand_visible:
@@ -218,8 +236,17 @@ while camera.isOpened():
         elif 1 <= current_right_fingers <= 4:
             target_chord = families[active_family][current_right_fingers - 1]
     
-    if target_chord != current_playing_chord:
-        pygame.mixer.stop()
+    # DEBOUNCE: only switch if the same chord is detected for 5 frames
+    if target_chord == current_playing_chord:
+        debounce_counter = 0  # same chord, reset counter
+    else:
+        debounce_counter += 1  # new chord detected, count frames
+    
+    if debounce_counter >= DEBOUNCE_FRAMES:
+        # confirmed stable new gesture - switch audio
+        if active_channel:
+            active_channel.stop()
+            active_channel = None
         
         if target_chord is not None:
             try:
@@ -227,12 +254,13 @@ while camera.isOpened():
                 sh2 = shift_pitch(target_chord[1], left_capo_shift)
                 sh3 = shift_pitch(target_chord[2], left_capo_shift)
                 
-                loop = build_loop(sh1, sh2, sh3)
-                loop.play(loops=-1)
+                sound = build_loop(sh1, sh2, sh3)
+                active_channel = sound.play(loops=-1)
             except:
                 pass
         
         current_playing_chord = target_chord
+        debounce_counter = 0
 
     # chord name
     chord_name = "None"
@@ -262,5 +290,7 @@ while camera.isOpened():
         break
 
 camera.release()
+if active_channel:
+    active_channel.stop()
 pygame.mixer.stop()
 cv2.destroyAllWindows()
