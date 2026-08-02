@@ -45,7 +45,7 @@ The AI handled syntax and boilerplate so I could focus on the actual engineering
 ## Problems I Ran Into
 
 - **Handedness flipping**: MediaPipe would randomly swap left/right labels. Solved by ignoring labels and dividing the screen by absolute position.
-- **Audio clicking**: Chord changes were cutting waveforms mid-cycle. Fixed by using pygame Channels, which let me stop individual sounds cleanly instead of killing the entire audio mixer at once.
+- **Audio lag on chord change**: Generating new chord sounds in real-time was blocking the camera feed and causing stutter. Fixed by adding a sound cache — once a chord is generated, it's stored and reused instantly instead of being rebuilt every time.
 - **Capo offset bug**: 3 fingers were producing +4 semitones due to a mapping error. Corrected to direct 1:1 finger-to-semitone mapping.
 - **External camera priority**: macOS kept defaulting to my iPhone Continuity Camera. Added a resolution check to identify and skip external devices.
 - **Sound quality**: Pure sine waves sounded thin and cheap. Added harmonic overtones and tuned the envelope to sound closer to a harmonium.
